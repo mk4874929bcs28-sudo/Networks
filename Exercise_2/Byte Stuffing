@@ -3,14 +3,12 @@
 #define MAX 1000
 int flagBits[8] = {0, 1, 1, 1, 1, 1, 1, 0}; // Flag pattern: 0x7E
 int escBits[8] = {0, 1, 1, 1, 1, 1, 0, 1}; // Escape pattern: 0x7D
-// Converts a character into an 8-bit binary block
 void charToBits(char c, int *arr, int start) {
     for (int i = 7; i >= 0; i--) {
         arr[start + i] = c & 1;
         c >>= 1;
     }
 }
-// Converts 8 consecutive bits back into a character
 char bitsToChar(int *arr, int start) {
     char c = 0;
     for (int i = 0; i < 8; i++) {
@@ -19,7 +17,6 @@ char bitsToChar(int *arr, int start) {
     }
     return c;
 }
-// Checks if a specified bit pattern matches the stream at the current position
 int matchesPattern(int *arr, int pos, int *pattern, int length, int totalLen) {
     if (pos + length > totalLen)
         return 0;
@@ -29,7 +26,6 @@ int matchesPattern(int *arr, int pos, int *pattern, int length, int totalLen) {
     }
     return 1;
 }
-// Inserts a sequence of bits into the destination array
 void insertBits(int *dest, int *src, int srcLen, int *destLen, int pos) {
     for (int i = 0; i < srcLen; i++) {
         dest[pos + i] = src[i];
@@ -64,7 +60,6 @@ int main() {
             printf(" ");
     }
     printf("\n\n");
-    // Byte Stuffing
     stuffedLen = 0;
     for (int i = 0; i < n;) {
         if (matchesPattern(data, i, flagBits, 8, n)) {
@@ -81,7 +76,6 @@ int main() {
             stuffed[stuffedLen++] = data[i++];
         }
     }
-    // Display Stuffed Bits
     printf("Stuffed Bits:\n");
     for (int i = 0; i < stuffedLen; i++) {
         printf("%d", stuffed[i]);
@@ -89,7 +83,6 @@ int main() {
             printf(" ");
     }
     printf("\n\n");
-    // Framing
     frameLen = 0;
     insertBits(frame, flagBits, 8, &frameLen, frameLen);
     insertBits(frame, stuffed, stuffedLen, &frameLen, frameLen);
@@ -116,7 +109,6 @@ int main() {
             destuffed[destuffedLen++] = frame[i++];
         }
     }
-    // Display Destuffed Bits
     printf("Destuffed Bits:\n");
     for (int i = 0; i < destuffedLen; i++) {
         printf("%d", destuffed[i]);
@@ -124,7 +116,6 @@ int main() {
             printf(" ");
     }
     printf("\n\n");
-    // Convert bits back to characters
     int textLen = 0;
     for (int i = 0; i < destuffedLen; i += 8) {
         recovered[textLen++] = bitsToChar(destuffed, i);
