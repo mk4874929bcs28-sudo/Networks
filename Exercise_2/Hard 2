@@ -1,0 +1,81 @@
+#include <stdio.h>
+#include <string.h>
+
+int main()
+{
+    char data[50][20], stuffed[100][20], received[100][20];
+    int n, i, j = 0, errorPos;
+
+    printf("Enter number of data bytes: ");
+    scanf("%d", &n);
+
+    printf("Enter data bytes:\n");
+    for(i = 0; i < n; i++)
+        scanf("%s", data[i]);
+
+    printf("\nOriginal Message : ");
+    for(i = 0; i < n; i++)
+        printf("%s ", data[i]);
+
+    // Start of frame
+    strcpy(stuffed[j++], "SOF");
+
+    // Byte Stuffing
+    for(i = 0; i < n; i++)
+    {
+        if(strcmp(data[i], "SOF") == 0 ||
+           strcmp(data[i], "EOF") == 0 ||
+           strcmp(data[i], "ESC") == 0)
+        {
+            strcpy(stuffed[j++], "ESC");
+        }
+
+        strcpy(stuffed[j++], data[i]);
+    }
+
+    // End of frame
+    strcpy(stuffed[j++], "EOF");
+
+    int size = j;
+
+    printf("\nStuffed Frame : ");
+    for(i = 0; i < size; i++)
+        printf("%s ", stuffed[i]);
+
+    // Transmission
+    for(i = 0; i < size; i++)
+        strcpy(received[i], stuffed[i]);
+
+    printf("\nEnter error position (0 for no error): ");
+    scanf("%d", &errorPos);
+
+    if(errorPos > 0)
+        strcpy(received[errorPos - 1], "ERROR");
+
+    printf("\nTransmitted Frame: ");
+    for(i = 0; i < size; i++)
+        printf("%s ", stuffed[i]);
+
+    printf("\nReceived Frame : ");
+    for(i = 0; i < size; i++)
+        printf("%s ", received[i]);
+
+    printf("\nRecovered Data : ");
+
+    for(i = 1; i < size - 1; i++)
+    {
+        if(strcmp(received[i], "ESC") == 0)
+        {
+            i++;
+            printf("%s ", received[i]);
+        }
+        else
+        {
+            printf("%s ", received[i]);
+        }
+    }
+
+    printf("\n");
+
+    return 0;
+}
