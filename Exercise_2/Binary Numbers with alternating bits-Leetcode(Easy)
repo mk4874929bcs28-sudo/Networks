@@ -1,0 +1,7 @@
+#include <stdbool.h>
+
+bool hasAlternatingBits(int n) {
+    
+    unsigned long x = (unsigned long)n ^ ((unsigned long)n >> 1);
+    return (x & (x + 1)) == 0;
+}
