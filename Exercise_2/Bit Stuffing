@@ -1,0 +1,101 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX 5000
+
+const char flag[] = "01111110";
+int flaglen = 8;
+
+int main() {
+    char inputText[MAX];
+    char binaryData[MAX] = "";
+    char stuffed[MAX] = "";
+    char framed[MAX] = "";
+    char destuffedBinary[MAX] = "";
+    char outputText[MAX] = "";
+
+    int ones = 0, j = 0;
+
+    // 1. Text Input Section
+    printf("Enter a text string (e.g., hello): ");
+    scanf("%s", inputText);
+
+    // 2. Convert Text to Binary String (8-bit ASCII)
+    int textLen = strlen(inputText);
+    int bitIdx = 0;
+    for (int i = 0; i < textLen; i++) {
+        char ch = inputText[i];
+        // Extract bits from MSB to LSB
+        for (int b = 7; b >= 0; b--) {
+            binaryData[bitIdx++] = ((ch >> b) & 1) ? '1' : '0';
+        }
+    }
+    binaryData[bitIdx] = '\0';
+
+    // 3. Bit Stuffing
+    int n = strlen(binaryData);
+    for (int i = 0; i < n; i++) {
+        stuffed[j++] = binaryData[i];
+
+        if (binaryData[i] == '1') {
+            ones++;
+            if (ones == 5) {
+                stuffed[j++] = '0'; // Stuff '0' after five '1's
+                ones = 0;
+            }
+        } else {
+            ones = 0;
+        }
+    }
+    stuffed[j] = '\0';
+
+    // 4. Framing
+    strcpy(framed, flag);
+    strcat(framed, stuffed);
+    strcat(framed, flag);
+    int framedLen = strlen(framed);
+
+    // 5. Print Sender-Side Results
+    printf("\n--- SENDER SIDE ---\n");
+    printf("Input Text   : %s\n", inputText);
+    printf("As Binary    : %s\n", binaryData);
+    printf("Bit Stuffed  : %s\n", stuffed);
+    printf("Framed Data  : %s\n", framed);
+
+    // 6. Destuffing (Receiver Side)
+    ones = 0;
+    j = 0;
+    for (int i = flaglen; i < framedLen - flaglen; i++) {
+        destuffedBinary[j++] = framed[i];
+
+        if (framed[i] == '1') {
+            ones++;
+            if (ones == 5) {
+                i++; // Skip the stuffed '0'
+                ones = 0;
+            }
+        } else {
+            ones = 0;
+        }
+    }
+    destuffedBinary[j] = '\0';
+
+    // 7. Convert Binary String Back to Text Characters
+    int destuffedLen = strlen(destuffedBinary);
+    int textIdx = 0;
+    for (int i = 0; i < destuffedLen; i += 8) {
+        char ch = 0;
+        for (int b = 0; b < 8; b++) {
+            ch = (ch << 1) | (destuffedBinary[i + b] - '0');
+        }
+        outputText[textIdx++] = ch;
+    }
+    outputText[textIdx] = '\0';
+
+    // 8. Print Receiver-Side Results
+    printf("\n--- RECEIVER SIDE ---\n");
+    printf("Destuffed Bin: %s\n", destuffedBinary);
+    printf("Restored Text: %s\n", outputText);
+
+    return 0;
+}
