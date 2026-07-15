@@ -1,0 +1,135 @@
+#include <stdio.h>
+#include <string.h>
+#define MAX 1000
+int flagBits[8] = {0, 1, 1, 1, 1, 1, 1, 0}; // Flag pattern: 0x7E
+int escBits[8] = {0, 1, 1, 1, 1, 1, 0, 1}; // Escape pattern: 0x7D
+// Converts a character into an 8-bit binary block
+void charToBits(char c, int *arr, int start) {
+    for (int i = 7; i >= 0; i--) {
+        arr[start + i] = c & 1;
+        c >>= 1;
+    }
+}
+// Converts 8 consecutive bits back into a character
+char bitsToChar(int *arr, int start) {
+    char c = 0;
+    for (int i = 0; i < 8; i++) {
+        c <<= 1;
+        c |= arr[start + i];
+    }
+    return c;
+}
+// Checks if a specified bit pattern matches the stream at the current position
+int matchesPattern(int *arr, int pos, int *pattern, int length, int totalLen) {
+    if (pos + length > totalLen)
+        return 0;
+    for (int i = 0; i < length; i++) {
+        if (arr[pos + i] != pattern[i])
+            return 0;
+    }
+    return 1;
+}
+// Inserts a sequence of bits into the destination array
+void insertBits(int *dest, int *src, int srcLen, int *destLen, int pos) {
+    for (int i = 0; i < srcLen; i++) {
+        dest[pos + i] = src[i];
+    }
+    *destLen += srcLen;
+}
+int main() {
+    char input[MAX];
+    char recovered[MAX];
+    int data[MAX * 8];
+    int stuffed[MAX * 16];
+    int frame[MAX * 16];
+    int destuffed[MAX * 8];
+    int n = 0;
+    int stuffedLen = 0;
+    int frameLen = 0;
+    int destuffedLen = 0;
+    printf("Enter the string: ");
+    fgets(input, MAX, stdin);
+    input[strcspn(input, "\n")] = '\0';
+    // Convert input string to bits
+    int len = strlen(input);
+    for (int i = 0; i < len; i++) {
+        charToBits(input[i], data, n);
+        n += 8;
+    }
+    // Display Original Data Bits
+    printf("\nOriginal Data Bits:\n");
+    for (int i = 0; i < n; i++) {
+        printf("%d", data[i]);
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+    printf("\n\n");
+    // Byte Stuffing
+    stuffedLen = 0;
+    for (int i = 0; i < n;) {
+        if (matchesPattern(data, i, flagBits, 8, n)) {
+            insertBits(stuffed, escBits, 8, &stuffedLen, stuffedLen);
+            insertBits(stuffed, &data[i], 8, &stuffedLen, stuffedLen);
+            i += 8;
+        }
+        else if (matchesPattern(data, i, escBits, 8, n)) {
+            insertBits(stuffed, escBits, 8, &stuffedLen, stuffedLen);
+            insertBits(stuffed, &data[i], 8, &stuffedLen, stuffedLen);
+            i += 8;
+        }
+        else {
+            stuffed[stuffedLen++] = data[i++];
+        }
+    }
+    // Display Stuffed Bits
+    printf("Stuffed Bits:\n");
+    for (int i = 0; i < stuffedLen; i++) {
+        printf("%d", stuffed[i]);
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+    printf("\n\n");
+    // Framing
+    frameLen = 0;
+    insertBits(frame, flagBits, 8, &frameLen, frameLen);
+    insertBits(frame, stuffed, stuffedLen, &frameLen, frameLen);
+    insertBits(frame, flagBits, 8, &frameLen, frameLen);
+    // Display Framed Bits
+    printf("Framed Bits:\n");
+    for (int i = 0; i < frameLen; i++) {
+        printf("%d", frame[i]);
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+    printf("\n\n");
+    // Destuffing
+    destuffedLen = 0;
+    int payloadStart = 8;
+    int payloadEnd = frameLen - 8;
+    for (int i = payloadStart; i < payloadEnd;) {
+        if (matchesPattern(frame, i, escBits, 8, payloadEnd)) {
+            i += 8;
+            insertBits(destuffed, &frame[i], 8, &destuffedLen, destuffedLen);
+            i += 8;
+        }
+        else {
+            destuffed[destuffedLen++] = frame[i++];
+        }
+    }
+    // Display Destuffed Bits
+    printf("Destuffed Bits:\n");
+    for (int i = 0; i < destuffedLen; i++) {
+        printf("%d", destuffed[i]);
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+    printf("\n\n");
+    // Convert bits back to characters
+    int textLen = 0;
+    for (int i = 0; i < destuffedLen; i += 8) {
+        recovered[textLen++] = bitsToChar(destuffed, i);
+    }
+    recovered[textLen] = '\0';
+    printf("Recovered Message: %s\n", recovered);
+    return 0;
+}
