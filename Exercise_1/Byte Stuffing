@@ -1,0 +1,270 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_BITS 2000
+
+int main()
+{
+    char str[100];
+    int binary_stream[MAX_BITS];
+    int stuffed_stream[MAX_BITS];
+    int transmitted_stream[MAX_BITS];
+    int received_stream[MAX_BITS];
+    int destuffed_stream[MAX_BITS];
+
+    // Flag ('F' = 01000110) and ESC ('E' = 01000101) definitions
+    int flag_byte[8] = {0,1,0,0,0,1,1,0};
+    int esc_byte[8]  = {0,1,0,0,0,1,0,1};
+
+    int bit_idx = 0;
+    int stuffed_idx = 0;
+    int destuffed_idx = 0;
+    int len, i, b, choice;
+    char ch;
+
+    int error_detected = 0;
+    int error_pos;    // For single bit error position
+    int num_errors;   // For multiple bit errors count
+
+    // 1. Get string input from user
+    printf("Enter word: ");
+    if (!fgets(str, sizeof(str), stdin)) return 1;
+    str[strcspn(str, "\n")] = '\0';
+
+    len = strlen(str);
+
+    // Convert character text string into its raw binary bit array form (8 bits per char)
+    for(i = 0; i < len; i++)
+    {
+        ch = str[i];
+        for(b = 7; b >= 0; b--)
+        {
+            binary_stream[bit_idx++] = (ch >> b) & 1;
+        }
+    }
+
+    // 2. Sender Side: Byte Stuffing on Binary Bit Groups
+    for(i = 0; i < bit_idx; i += 8)
+    {
+        int is_flag = 1;
+        int is_esc = 1;
+
+        // Check if current 8-bit group matches FLAG or ESC byte patterns
+        for(b = 0; b < 8; b++) {
+            if(binary_stream[i + b] != flag_byte[b]) is_flag = 0;
+            if(binary_stream[i + b] != esc_byte[b])  is_esc = 0;
+        }
+
+        // If a match is found, stuff an ESC byte (8 bits) into the stream first
+        if(is_flag || is_esc)
+        {
+            for(b = 0; b < 8; b++) {
+                stuffed_stream[stuffed_idx++] = esc_byte[b];
+            }
+        }
+
+        // Copy the original 8 data bits into the stuffed stream
+        for(b = 0; b < 8; b++) {
+            stuffed_stream[stuffed_idx++] = binary_stream[i + b];
+        }
+    }
+
+    printf("\n=========== SENDER SIDE ===========\n");
+
+    printf("\nOriginal Binary Data : ");
+    for(i = 0; i < bit_idx; i++) {
+        printf("%d", binary_stream[i]);
+        if((i + 1) % 8 == 0) printf(" ");
+    }
+
+    printf("\n\nStuffed Frame        : ");
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]); // Opening Flag
+    printf(" ");
+    for(i = 0; i < stuffed_idx; i++) {
+        printf("%d", stuffed_stream[i]);
+        if((i + 1) % 8 == 0) printf(" ");
+    }
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]); // Closing Flag
+
+    printf("\n\nStatus               : %s\n", (stuffed_idx > bit_idx) ? "Byte Stuffing Performed" : "No Byte Stuffing Required");
+    printf("Total bits inside frame (excluding flags): %d\n", stuffed_idx);
+
+    // Copy clean stuffed stream into transmission channel buffer
+    for(i = 0; i < stuffed_idx; i++)
+        transmitted_stream[i] = stuffed_stream[i];
+
+    // Transmitted Frame is printed here—guaranteed to be 100% correct and error-free
+    printf("\nTransmitted Frame    : ");
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]);
+    printf(" ");
+    for(i = 0; i < stuffed_idx; i++) {
+        printf("%d", transmitted_stream[i]);
+        if((i + 1) % 8 == 0) printf(" ");
+    }
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]);
+
+    // Simulate wire transmission: Copy clean data over to the receiver first
+    for(i = 0; i < stuffed_idx; i++)
+        received_stream[i] = transmitted_stream[i];
+
+    // 3. Channel Error Injection (Modifies RECEIVED stream bits only)
+    printf("\n\nChoose error type option to apply during transit:\n");
+    printf("1. No Error (Clean channel)\n");
+    printf("2. Single Bit Error (User Input Position)\n");
+    printf("3. Multiple Bit Error (User Input Positions)\n");
+    printf("Enter Choice (1-3): ");
+    if (scanf("%d", &choice) != 1) choice = 1;
+
+    switch(choice)
+    {
+        case 1:
+            printf("No Error Introduced.\n");
+            break;
+
+        case 2:
+            if (stuffed_idx > 0) {
+                printf("Enter bit position to flip (1 to %d): ", stuffed_idx);
+                scanf("%d", &error_pos);
+                if (error_pos >= 1 && error_pos <= stuffed_idx) {
+                    received_stream[error_pos - 1] ^= 1; // Flips bit inside received_stream ONLY
+                    printf("Single bit error injected into channel at bit position: %d\n", error_pos);
+                } else {
+                    printf("Invalid position! No error introduced.\n");
+                }
+            }
+            break;
+
+        case 3:
+            if (stuffed_idx > 1) {
+                printf("Enter how many bit errors you want to inject (max %d): ", stuffed_idx);
+                scanf("%d", &num_errors);
+
+                if (num_errors >= 1 && num_errors <= stuffed_idx) {
+                    printf("Enter %d distinct bit positions separated by spaces (1 to %d): ", num_errors, stuffed_idx);
+                    for (int e = 0; e < num_errors; e++) {
+                        scanf("%d", &error_pos);
+                        if (error_pos >= 1 && error_pos <= stuffed_idx) {
+                            received_stream[error_pos - 1] ^= 1; // Flips bit inside received_stream ONLY
+                        } else {
+                            printf("\nInvalid position %d ignored.", error_pos);
+                        }
+                    }
+                    printf("\nMultiple bit errors successfully injected into incoming stream.\n");
+                } else {
+                    printf("Invalid quantity! No errors introduced.\n");
+                }
+            }
+            break;
+
+        default:
+            printf("Invalid choice received. Defaulting to \"No Error\" mode.\n");
+            break;
+    }
+
+    // 4. Receiver Side: Processing Corrupted Stream
+    printf("\n=========== RECEIVER SIDE ===========\n");
+
+    printf("\nReceived Frame       : ");
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]);
+    printf(" ");
+    for(i = 0; i < stuffed_idx; i++) {
+        printf("%d", received_stream[i]); // Displays errors visibly
+        if((i + 1) % 8 == 0) printf(" ");
+    }
+    for(b = 0; b < 8; b++) printf("%d", flag_byte[b]);
+
+    // De-stuffing algorithm implementation logic (evaluates 8-bit windows)
+    for(i = 0; i < stuffed_idx; i += 8)
+    {
+        if (i + 7 >= stuffed_idx) {
+            error_detected = 1;
+            break;
+        }
+
+        int is_flag = 1;
+        int is_esc = 1;
+
+        // Check if current 8-bit chunk is an ESC or FLAG byte
+        for(b = 0; b < 8; b++) {
+            if(received_stream[i + b] != flag_byte[b]) is_flag = 0;
+            if(received_stream[i + b] != esc_byte[b])  is_esc = 0;
+        }
+
+        if(is_esc)
+        {
+            i += 8;
+            if(i + 7 >= stuffed_idx) {
+                error_detected = 1; // Trailing escape byte with no data behind it
+                break;
+            }
+
+            int next_is_flag = 1;
+            int next_is_esc = 1;
+            for(b = 0; b < 8; b++) {
+                if(received_stream[i + b] != flag_byte[b]) next_is_flag = 0;
+                if(received_stream[i + b] != esc_byte[b])  next_is_esc = 0;
+                destuffed_stream[destuffed_idx++] = received_stream[i + b];
+            }
+
+            if(!next_is_flag && !next_is_esc) {
+                error_detected = 1;
+            }
+        }
+        else
+        {
+            for(b = 0; b < 8; b++) {
+                destuffed_stream[destuffed_idx++] = received_stream[i + b];
+            }
+
+            if(is_flag) {
+                error_detected = 1;
+            }
+        }
+    }
+
+    printf("\n\nDestuffed Frame      : ");
+    for(i = 0; i < destuffed_idx; i++) {
+        printf("%d", destuffed_stream[i]);
+        if((i + 1) % 8 == 0) printf(" ");
+    }
+
+    // 5. Verification Check Engine
+    if (destuffed_idx % 8 != 0 || bit_idx != destuffed_idx)
+    {
+        error_detected = 1;
+    }
+    else
+    {
+        for(i = 0; i < bit_idx; i++)
+        {
+            if(binary_stream[i] != destuffed_stream[i])
+            {
+                error_detected = 1;
+                break;
+            }
+        }
+    }
+
+    // 6. Output Error Detection Status Summary Report
+    if (error_detected)
+    {
+        printf("\n\nError Detection Status: ERROR DETECTED! Frame discarded or structural framing violation.\n");
+    }
+    else
+    {
+        printf("\n\nError Detection Status: SUCCESS! Frame matches original text.\n");
+        printf("Recovered Data       : ");
+        for(i = 0; i < destuffed_idx; i += 8)
+        {
+            ch = 0;
+            for(b = 0; b < 8; b++)
+                ch = (ch << 1) | destuffed_stream[i+b];
+
+            printf("%c", ch);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
