@@ -1,0 +1,83 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+// Structure to represent a directed edge in our adjacency list
+typedef struct {
+    int to;       // The neighboring city
+    bool is_real; // true if the road originally points from 'u' to 'v', false if artificial (reversed)
+    int next;     // Index pointing to the next edge node for the current vertex
+} Edge;
+
+// Global helper tracker configuration to avoid huge stack arrays in recursive calls
+Edge* edge_pool = NULL;
+int* head_idx = NULL;
+int pool_ptr = 0;
+
+// Function to safely insert structural node links into our graph tracker
+void addEdge(int from, int to, bool is_real) {
+    edge_pool[pool_ptr].to = to;
+    edge_pool[pool_ptr].is_real = is_real;
+    edge_pool[pool_ptr].next = head_idx[from];
+    head_idx[from] = pool_ptr++;
+}
+
+int minReorder(int n, int** connections, int connectionsSize, int* connectionsColSize) {
+    // 1. Allocate memory arrays for adjacency lists and traversal states
+    edge_pool = (Edge*)malloc(2 * connectionsSize * sizeof(Edge));
+    head_idx = (int*)malloc(n * sizeof(int));
+    for (int i = 0; i < n; i++) {
+        head_idx[i] = -1;
+    }
+    pool_ptr = 0;
+
+    // 2. Build the graph. For every directed connection [u, v]:
+    //    - Add a real forward edge: u -> v (is_real = true)
+    //    - Add a reversed fake edge: v -> u (is_real = false) to allow bidirectional traversal
+    for (int i = 0; i < connectionsSize; i++) {
+        int u = connections[i][0];
+        int v = connections[i][1];
+        addEdge(u, v, true);  
+        addEdge(v, u, false); 
+    }
+
+    // 3. Setup standard BFS queue configuration
+    int* queue = (int*)malloc(n * sizeof(int));
+    bool* visited = (bool*)calloc(n, sizeof(bool));
+    int head = 0, tail = 0;
+    int change_count = 0;
+
+    // Initialize BFS traversal starting from the destination hub (city 0)
+    queue[tail++] = 0;
+    visited[0] = true;
+
+    // 4. Run BFS Traversal outward from node 0
+    while (head < tail) {
+        int curr = queue[head++];
+
+        // Explore all connected incoming and outgoing routes
+        for (int e = head_idx[curr]; e != -1; e = edge_pool[e].next) {
+            int neighbor = edge_pool[e].to;
+
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+
+                // If the edge is marked real, it means the physical road points 
+                // from 'curr' to 'neighbor' (away from 0). This needs to be reversed.
+                if (edge_pool[e].is_real) {
+                    change_count++;
+                }
+
+                queue[tail++] = neighbor;
+            }
+        }
+    }
+
+    // 5. Clean up allocated heap segments
+    free(edge_pool);
+    free(head_idx);
+    free(queue);
+    free(visited);
+
+    return change_count;
+}
