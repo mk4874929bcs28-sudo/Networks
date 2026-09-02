@@ -1,0 +1,150 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define INF 1e9
+
+// Structure to represent an edge in the adjacency list
+typedef struct {
+    int to;
+    int weight;
+    int next;
+} Edge;
+
+// Structure for the Priority Queue (Min-Heap) elements
+typedef struct {
+    int node;
+    int dist;
+} HeapNode;
+
+typedef struct {
+    HeapNode* data;
+    int size;
+    int capacity;
+} MinHeap;
+
+// Min-Heap Utility Functions
+MinHeap* createMinHeap(int capacity) {
+    MinHeap* heap = (MinHeap*)malloc(sizeof(MinHeap));
+    heap->data = (HeapNode*)malloc(capacity * sizeof(HeapNode));
+    heap->size = 0;
+    heap->capacity = capacity;
+    return heap;
+}
+
+void swap(HeapNode* a, HeapNode* b) {
+    HeapNode temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void heapifyUp(MinHeap* heap, int idx) {
+    while (idx > 0 && heap->data[idx].dist < heap->data[(idx - 1) / 2].dist) {
+        swap(&heap->data[idx], &heap->data[(idx - 1) / 2]);
+        idx = (idx - 1) / 2;
+    }
+}
+
+void heapifyDown(MinHeap* heap, int idx) {
+    int smallest = idx;
+    int left = 2 * idx + 1;
+    int right = 2 * idx + 2;
+
+    if (left < heap->size && heap->data[left].dist < heap->data[smallest].dist)
+        smallest = left;
+    if (right < heap->size && heap->data[right].dist < heap->data[smallest].dist)
+        smallest = right;
+
+    if (smallest != idx) {
+        swap(&heap->data[idx], &heap->data[smallest]);
+        heapifyDown(heap, smallest);
+    }
+}
+
+void push(MinHeap* heap, int node, int dist) {
+    if (heap->size == heap->capacity) return;
+    heap->data[heap->size].node = node;
+    heap->data[heap->size].dist = dist;
+    heap->size++;
+    heapifyUp(heap, heap->size - 1);
+}
+
+HeapNode pop(MinHeap* heap) {
+    HeapNode root = heap->data[0];
+    heap->data[0] = heap->data[heap->size - 1];
+    heap->size--;
+    heapifyDown(heap, 0);
+    return root;
+}
+
+// Main LeetCode Entry Function
+int networkDelayTime(int** times, int timesSize, int* timesColSize, int n, int k) {
+    // 1. Allocate Adjacency List Storage (Using Forward Star format)
+    Edge* edge_pool = (Edge*)malloc(timesSize * sizeof(Edge));
+    int* head_idx = (int*)malloc((n + 1) * sizeof(int));
+    for (int i = 0; i <= n; i++) head_idx[i] = -1;
+    
+    // 2. Populate the graph
+    for (int i = 0; i < timesSize; i++) {
+        int u = times[i][0];
+        int v = times[i][1];
+        int w = times[i][2];
+        
+        edge_pool[i].to = v;
+        edge_pool[i].weight = w;
+        edge_pool[i].next = head_idx[u];
+        head_idx[u] = i;
+    }
+
+    // 3. Initialize Distance array
+    int* dist = (int*)malloc((n + 1) * sizeof(int));
+    for (int i = 1; i <= n; i++) dist[i] = INF;
+    
+    // Create priority queue (worst-case allocation boundary space)
+    MinHeap* heap = createMinHeap(timesSize * 2);
+
+    // Initialize starting parameters (1-indexed node adjustments)
+    dist[k] = 0;
+    push(heap, k, 0);
+
+    // 4. Run Dijkstra Engine
+    while (heap->size > 0) {
+        HeapNode curr = pop(heap);
+        int u = curr.node;
+        int d = curr.dist;
+
+        // Skip outdated path entries
+        if (d > dist[u]) continue;
+
+        // Traverse all adjacent edge structures out of node 'u'
+        for (int e = head_idx[u]; e != -1; e = edge_pool[e].next) {
+            int v = edge_pool[e].to;
+            int weight = edge_pool[e].weight;
+
+            if (dist[u] + weight < dist[v]) {
+                dist[v] = dist[u] + weight;
+                push(heap, v, dist[v]);
+            }
+        }
+    }
+
+    // 5. Aggregate results and find the maximum travel time
+    int max_delay = 0;
+    for (int i = 1; i <= n; i++) {
+        if (dist[i] == INF) {
+            // Found an unreachable node
+            free(edge_pool); free(head_idx); free(dist);
+            free(heap->data); free(heap);
+            return -1;
+        }
+        if (dist[i] > max_delay) {
+            max_delay = dist[i];
+        }
+    }
+
+    // Clean up heap segment spaces
+    free(edge_pool); free(head_idx); free(dist);
+    free(heap->data); free(heap);
+
+    return max_delay;
+}
