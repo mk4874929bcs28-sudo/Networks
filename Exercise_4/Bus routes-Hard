@@ -1,0 +1,121 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+// Structure to associate a specific bus stop with a bus route ID
+typedef struct {
+    int stop_id;
+    int route_id;
+} StopToRoute;
+
+// Comparison function to sort entries by stop_id, then by route_id
+int compareStopToRoute(const void* a, const void* b) {
+    StopToRoute* sa = (StopToRoute*)a;
+    StopToRoute* sb = (StopToRoute*)b;
+    if (sa->stop_id != sb->stop_id) {
+        return sa->stop_id - sb->stop_id;
+    }
+    return sa->route_id - sb->route_id;
+}
+
+int numBusesToDestination(int** routes, int routesSize, int* routesColSize, int source, int target) {
+    // Base Case: Already at the destination
+    if (source == target) return 0;
+
+    // 1. Calculate total number of stop-to-route connections
+    int total_mappings = 0;
+    for (int i = 0; i < routesSize; i++) {
+        total_mappings += routesColSize[i];
+    }
+
+    // 2. Flatten mapping pairs and sort them to enable binary searching
+    StopToRoute* mappings = (StopToRoute*)malloc(total_mappings * sizeof(StopToRoute));
+    int map_idx = 0;
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            mappings[map_idx].stop_id = routes[i][j];
+            mappings[map_idx].route_id = i;
+            map_idx++;
+        }
+    }
+    qsort(mappings, total_mappings, sizeof(StopToRoute), compareStopToRoute);
+
+    // Helper bounds arrays to locate the range of routes a stop belongs to
+    // We map using a direct array index for memory speed based on maximum limits
+    int max_stop = 0;
+    for (int i = 0; i < total_mappings; i++) {
+        if (mappings[i].stop_id > max_stop) max_stop = mappings[i].stop_id;
+    }
+
+    int* stop_start_idx = (int*)malloc((max_stop + 1) * sizeof(int));
+    int* stop_end_idx = (int*)malloc((max_stop + 1) * sizeof(int));
+    for (int i = 0; i <= max_stop; i++) {
+        stop_start_idx[i] = -1;
+        stop_end_idx[i] = -1;
+    }
+
+    for (int i = 0; i < total_mappings; i++) {
+        int s = mappings[i].stop_id;
+        if (stop_start_idx[s] == -1) {
+            stop_start_idx[s] = i;
+        }
+        stop_end_idx[s] = i;
+    }
+
+    // Validation: Check if source or target are outside bounds or non-existent
+    if (source > max_stop || target > max_stop || stop_start_idx[source] == -1 || stop_start_idx[target] == -1) {
+        free(mappings); free(stop_start_idx); free(stop_end_idx);
+        return -1;
+    }
+
+    // 3. Setup BFS Queue and States
+    int* queue = (int*)malloc(routesSize * sizeof(int));
+    int head = 0, tail = 0;
+    
+    bool* visited_routes = (bool*)calloc(routesSize, sizeof(bool));
+    int* bus_count = (int*)malloc(routesSize * sizeof(int));
+
+    // Initialize BFS by boarding all routes passing through the source stop
+    for (int i = stop_start_idx[source]; i <= stop_end_idx[source]; i++) {
+        int r = mappings[i].route_id;
+        visited_routes[r] = true;
+        bus_count[r] = 1;
+        queue[tail++] = r;
+    }
+
+    // 4. Run BFS Traversal
+    while (head < tail) {
+        int curr_route = queue[head++];
+        
+        // Scan all stops covered by the current boarded bus route
+        for (int j = 0; j < routesColSize[curr_route]; j++) {
+            int stop = routes[curr_route][j];
+            
+            // If the stop matches our target, return current step immediately
+            if (stop == target) {
+                int ans = bus_count[curr_route];
+                free(mappings); free(stop_start_idx); free(stop_end_idx);
+                free(queue); free(visited_routes); free(bus_count);
+                return ans;
+            }
+
+            // Transit layer: check other unvisited routes connecting at this intermediate stop
+            if (stop <= max_stop && stop_start_idx[stop] != -1) {
+                for (int k = stop_start_idx[stop]; k <= stop_end_idx[stop]; k++) {
+                    int next_route = mappings[k].route_id;
+                    if (!visited_routes[next_route]) {
+                        visited_routes[next_route] = true;
+                        bus_count[next_route] = bus_count[curr_route] + 1;
+                        queue[tail++] = next_route;
+                    }
+                }
+            }
+        }
+    }
+
+    // Cleanup memory allocations if the destination is unreachable
+    free(mappings); free(stop_start_idx); free(stop_end_idx);
+    free(queue); free(visited_routes); free(bus_count);
+    return -1;
+}
