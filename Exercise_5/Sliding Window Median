@@ -1,0 +1,41 @@
+#include <stdlib.h>
+
+int compare(const void *a, const void *b) {
+    int x = *(int *)a;
+    int y = *(int *)b;
+
+    if (x < y) return -1;
+    if (x > y) return 1;
+    return 0;
+}
+
+double* medianSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+
+    *returnSize = numsSize - k + 1;
+
+    double* result = malloc((*returnSize) * sizeof(double));
+    int* window = malloc(k * sizeof(int));
+
+    for (int i = 0; i <= numsSize - k; i++) {
+
+        // Copy current window
+        for (int j = 0; j < k; j++) {
+            window[j] = nums[i + j];
+        }
+
+        // Sort window
+        qsort(window, k, sizeof(int), compare);
+
+        // Find median
+        if (k % 2 == 1) {
+            result[i] = window[k / 2];
+        } else {
+            result[i] = ((double)window[k / 2 - 1] +
+                         (double)window[k / 2]) / 2.0;
+        }
+    }
+
+    free(window);
+
+    return result;
+}
