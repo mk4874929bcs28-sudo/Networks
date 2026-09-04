@@ -1,0 +1,238 @@
+#include<stdio.h>
+#define MAX 100
+
+void stopAndWait();
+void goBackN();
+void selectiveRepeat();
+
+int main()
+{
+    int choice;
+
+    do
+    {
+        printf("\n====================================================\n");
+        printf("              SLIDING WINDOW PROTOCOL\n");
+        printf("====================================================\n");
+        printf("1. Stop-and-Wait ARQ\n");
+        printf("2. Go-Back-N ARQ\n");
+        printf("3. Selective Repeat ARQ\n");
+        printf("4. Exit\n");
+        printf("====================================================\n");
+
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice)
+        {
+            case 1:
+                stopAndWait();
+                break;
+
+            case 2:
+                goBackN();
+                break;
+
+            case 3:
+                selectiveRepeat();
+                break;
+
+            case 4:
+                printf("\nExiting Program...\n");
+                break;
+
+            default:
+                printf("\nInvalid Choice! Please try again.\n");
+        }
+
+    } while (choice != 4);
+
+    return 0;
+}
+
+
+/* =========================================================
+                    STOP-AND-WAIT ARQ
+   ========================================================= */
+
+void stopAndWait()
+{
+    int totalFrames;
+    int i;
+    int lostFrame;
+    printf("------------ STOP-AND-WAIT ARQ ------------\n");
+
+    printf("Enter total number of frames: ");
+    scanf("%d", &totalFrames);
+
+    printf("Enter frame number to simulate loss (-1 for no loss): ");
+    scanf("%d", &lostFrame);
+
+    printf("\n");
+
+    for (i = 0; i < totalFrames; i++)
+    {
+        printf("Sender: Sending Frame %d\n", i);
+
+        if (i == lostFrame)
+        {
+            printf("Receiver: Frame %d LOST!\n", i);
+            printf("Sender: Timeout occurred.\n");
+            printf("Sender: Retransmitting Frame %d\n", i);
+        }
+
+        printf("Receiver: Frame %d received successfully.\n", i);
+        printf("Receiver: ACK %d sent.\n", i);
+        printf("Sender: ACK %d received.\n\n", i);
+    }
+
+    printf("All frames transmitted successfully.\n");
+}
+
+
+/* =========================================================
+                     GO-BACK-N ARQ
+   ========================================================= */
+
+void goBackN()
+{
+    int totalFrames, windowSize;
+    int i, j;
+    int lostFrame;
+    printf("---------- GO-BACK-N ARQ -------------\n");
+
+    printf("Enter total number of frames: ");
+    scanf("%d", &totalFrames);
+
+    printf("Enter window size: ");
+    scanf("%d", &windowSize);
+
+    printf("Enter frame number to simulate loss (-1 for no loss): ");
+    scanf("%d", &lostFrame);
+
+    printf("\n");
+
+    for (i = 0; i < totalFrames; i += windowSize)
+    {
+        printf("--------------------------------------------\n");
+        printf("Current Window: ");
+
+        for (j = i; j < i + windowSize && j < totalFrames; j++)
+        {
+            printf("%d ", j);
+        }
+
+        printf("\n\n");
+
+        for (j = i; j < i + windowSize && j < totalFrames; j++)
+        {
+            printf("Sender: Sending Frame %d\n", j);
+
+            if (j == lostFrame)
+            {
+                printf("Receiver: Frame %d LOST!\n", j);
+                printf("Sender: Timeout occurred.\n");
+
+                printf("\nGo-Back-N: Retransmitting frames from %d\n\n",
+                       lostFrame);
+
+                /* Retransmit frames from lost frame */
+
+                for (j = lostFrame;
+                     j < i + windowSize && j < totalFrames;
+                     j++)
+                {
+                    printf("Sender: Retransmitting Frame %d\n", j);
+                    printf("Receiver: Frame %d received.\n", j);
+                    printf("Receiver: ACK %d sent.\n", j);
+                }
+
+                break;
+            }
+            else
+            {
+                printf("Receiver: Frame %d received.\n", j);
+                printf("Receiver: ACK %d sent.\n", j);
+            }
+        }
+
+        printf("--------------------------------------------\n");
+    }
+
+    printf("\nAll frames transmitted successfully.\n");
+}
+
+
+/* =========================================================
+                   SELECTIVE REPEAT ARQ
+   ========================================================= */
+
+void selectiveRepeat()
+{
+    int totalFrames, windowSize;
+    int i, j;
+    int lostFrame;
+    printf("------------- SELECTIVE REPEAT ARQ -------------\n");
+
+    printf("Enter total number of frames: ");
+    scanf("%d", &totalFrames);
+
+    printf("Enter window size: ");
+    scanf("%d", &windowSize);
+
+    printf("Enter frame number to simulate loss (-1 for no loss): ");
+    scanf("%d", &lostFrame);
+
+    printf("\n");
+
+    for (i = 0; i < totalFrames; i += windowSize)
+    {
+        printf("--------------------------------------------\n");
+        printf("Current Window: ");
+
+        for (j = i; j < i + windowSize && j < totalFrames; j++)
+        {
+            printf("%d ", j);
+        }
+
+        printf("\n\n");
+
+        for (j = i; j < i + windowSize && j < totalFrames; j++)
+        {
+            printf("Sender: Sending Frame %d\n", j);
+
+            if (j == lostFrame)
+            {
+                printf("Receiver: Frame %d LOST!\n", j);
+            }
+            else
+            {
+                printf("Receiver: Frame %d received.\n", j);
+                printf("Receiver: ACK %d sent.\n", j);
+            }
+        }
+
+        /* Retransmit only lost frame */
+
+        if (lostFrame >= i &&
+            lostFrame < i + windowSize &&
+            lostFrame < totalFrames)
+        {
+            printf("\nSelective Repeat: Timeout for Frame %d\n",
+                   lostFrame);
+
+            printf("Sender: Retransmitting ONLY Frame %d\n",
+                   lostFrame);
+
+            printf("Receiver: Frame %d received successfully.\n",
+                   lostFrame);
+
+            printf("Receiver: ACK %d sent.\n",
+                   lostFrame);
+        }
+
+        printf("--------------------------------------------\n");
+    }
+
+    printf("\nAll frames transmitted successfully.\n");
+}
